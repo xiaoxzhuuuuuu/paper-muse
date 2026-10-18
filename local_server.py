@@ -3,6 +3,14 @@ import os,json,secrets,threading,time,webbrowser,urllib.request,urllib.parse,url
 from pathlib import Path
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 ROOT=Path(__file__).resolve().parent
+
+def public_file(name):
+ # Called only after the route's explicit public-file allowlist check.
+ # Accept both the original dist tree and browser uploads flattened at root.
+ for candidate in (ROOT/'dist'/name, ROOT/name, ROOT/Path(name).name):
+  if candidate.is_file():return candidate
+ return ROOT/'dist'/name
+
 KEY=os.environ.get('DEEPSEEK_API_KEY','').strip()
 if not KEY and (ROOT/'.env').exists():
  for line in (ROOT/'.env').read_text(encoding='utf-8-sig').splitlines():
@@ -56,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/visual-reference':
    try:
     from art_pipeline import cache_image_bytes
-    a=cache_image_bytes(sys.modules[__name__],(ROOT/'dist/assets/lalaland-reference.png').read_bytes());a.pop('_vision',None);return self.reply(a)
+    a=cache_image_bytes(sys.modules[__name__],public_file('assets/lalaland-reference.png').read_bytes());a.pop('_vision',None);return self.reply(a)
    except Exception:return self.reply({'error':'参考图暂不可用'},404)
   if path=='/api/reference':
    try:
@@ -81,17 +89,19 @@ class Handler(BaseHTTPRequestHandler):
    if not file.is_file():return self.reply({'error':'不存在'},404)
    b=file.read_bytes();self.send_response(200);self.send_header('Content-Type','image/jpeg');self.send_header('Cache-Control','public,max-age=86400');self.end_headers();self.wfile.write(b);return
   if path=='/assets/watercolor-sheet.png':
-   file=ROOT/'dist/assets/watercolor-sheet.png'
+   file=public_file('assets/watercolor-sheet.png')
    if not file.is_file():return self.reply({'error':'素材准备中'},404)
    b=file.read_bytes();self.send_response(200);self.send_header('Content-Type','image/png');self.end_headers();self.wfile.write(b);return
   if path in ['/assets/art-leaf.jpg','/assets/art-orbit.jpg','/assets/art-cup.jpg','/assets/art-window.jpg','/assets/credits.json']:
-   file=ROOT/'dist'/path.lstrip('/')
+   file=public_file(path.lstrip('/'))
    if not file.is_file():return self.reply({'error':'素材尚未准备完毕'},404)
    b=file.read_bytes();self.send_response(200);self.send_header('Content-Type','application/json; charset=utf-8' if path.endswith('.json') else 'image/jpeg');self.end_headers();self.wfile.write(b);return
   names={'/':'index.html','/index.html':'index.html','/upgrade.js':'upgrade.js','/local-ai.js':'local-ai.js','/art-experience.js':'art-experience.js','/design-preview.js':'design-preview.js','/visual-reference.js':'visual-reference.js'}
   name=names.get(path)
   if not name:return self.reply({'error':'不存在'},404)
-  b=(ROOT/'dist'/name).read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(b)
+  file=public_file(name)
+  if not file.is_file():return self.reply({'error':'网页文件缺失，请检查上传文件。'},404)
+  b=file.read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(b)
  def do_POST(self):
   global KEY
   if not self.authorized():return self.reply({'error':'请求来源不符，或体验码不正确，请重新打开网页。'},403)
