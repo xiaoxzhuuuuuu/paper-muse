@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: paper-muse
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python cloud_server.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEMO_ACCESS_CODE
+        sync: false
+      - key: MODEL_CALL_LIMIT
+        value: "30"

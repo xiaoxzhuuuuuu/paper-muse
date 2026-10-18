@@ -1,0 +1,10 @@
+qa-*.png
+sample.png
+sample.pdf
+colors.png
+release.tar.gz
+.env
+.env.*
+!.env.example
+.art-cache/
+__pycache__/
